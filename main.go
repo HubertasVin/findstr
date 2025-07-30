@@ -19,6 +19,8 @@ func main() {
 		os.Exit(1)
 	}
 
+    //TODO: Implement exclude-dir flag
+    //TODO: Parallelise the program
     if *exdir != "" {
         fmt.Println("Info: Exclude-dir flag is work in-progress, skipping flag for now.")
     }
