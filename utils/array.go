@@ -1,5 +1,10 @@
 package utils
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // RemoveDuplicate returns a new slice that preserves order
 // while eliminating duplicates.
 func RemoveDuplicate[T comparable](in []T) []T {
@@ -13,4 +18,18 @@ func RemoveDuplicate[T comparable](in []T) []T {
 		}
 	}
 	return out
+}
+
+func SplitStringToArray(input, separator string) []string {
+	var result []string
+	if input != "" {
+		for part := range strings.SplitSeq(input, separator) {
+			cleaned := filepath.Clean(strings.TrimSpace(part))
+			if cleaned != "" {
+				result = append(result, cleaned)
+			}
+		}
+	}
+
+	return result
 }

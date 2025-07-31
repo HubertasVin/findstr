@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // GetMatchContextLines returns the numeric range around a match.
@@ -22,7 +23,7 @@ func ReadFileLines(path string) ([]string, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-    scanner.Buffer(make([]byte, 0, 64*2048), 2048*2048)
+	scanner.Buffer(make([]byte, 0, 64*2048), 2048*2048)
 
 	var lines []string
 	for scanner.Scan() {
@@ -35,11 +36,13 @@ func ReadFileLines(path string) ([]string, error) {
 }
 
 // FilePathWalkDir returns a slice of relative file paths under root.
-func FilePathWalkDir(root string) ([]string, error) {
+func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
+
+	excludeDirs := SplitStringToArray(excludeDir, ",")
 
 	var files []string
 	err = filepath.Walk(absRoot, func(path string, info os.FileInfo, walkErr error) error {
@@ -53,6 +56,18 @@ func FilePathWalkDir(root string) ([]string, error) {
 		if err != nil {
 			return err
 		}
+
+		dir := filepath.Dir(rel)
+		for _, ex := range excludeDirs {
+			if ex == "." {
+				return nil
+			}
+			relToEx, err := filepath.Rel(ex, dir)
+			if err == nil && !strings.HasPrefix(relToEx, "..") {
+				return nil
+			}
+		}
+
 		files = append(files, rel)
 		return nil
 	})

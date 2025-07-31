@@ -46,7 +46,7 @@ func printMatchLines(
 		numFmt := fmt.Sprintf("%-*d", lnWidth, ln+1)
 		text := fmt.Sprintf("%s | %s", numFmt, m.FileContent[ln])
 
-		if slices.Contains(m.HighLineNums, ln) {
+		if slices.Contains(m.MatchLineNums, ln) {
 			fmt.Fprintln(tw, highFn("%s", text)+reset)
 		} else {
 			fmt.Fprintln(tw, text)

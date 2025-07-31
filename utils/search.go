@@ -8,25 +8,30 @@ import (
 )
 
 // SearchMatchLines walks files under root and returns matches.
-func SearchMatchLines(root, pattern string) ([]models.FileMatch, error) {
-	paths, err := FilePathWalkDir(root)
+func SearchMatchLines(flags models.ProgramFlags) ([]models.FileMatch, error) {
+	paths, err := FilePathWalkDir(
+		flags.Root,
+		flags.ExcludeDir,
+		flags.ExcludeFile,
+		flags.ThreadCount,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	var matches []models.FileMatch
 	for _, rel := range paths {
-		full := filepath.Join(root, rel)
+		full := filepath.Join(flags.Root, rel)
 		lines, err := ReadFileLines(full)
 		if err != nil {
 			return nil, err
 		}
 
-		var ctxLines, highLines []int
+		var ctxLines, matchLines []int
 		for i, line := range lines {
-			if CheckPattern(line, pattern) {
+			if CheckPattern(line, flags.Pattern) {
 				ctxLines = append(ctxLines, GetMatchContextLines(i, lines)...)
-				highLines = append(highLines, i)
+				matchLines = append(matchLines, i)
 			}
 		}
 
@@ -37,7 +42,7 @@ func SearchMatchLines(root, pattern string) ([]models.FileMatch, error) {
 			matches = append(matches, models.FileMatch{
 				File:            full,
 				ContextLineNums: ctxLines,
-				HighLineNums:    highLines,
+				MatchLineNums:   matchLines,
 				FileContent:     lines,
 			})
 		}
