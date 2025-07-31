@@ -28,11 +28,7 @@ func main() {
 		Pattern:     pattern,
 	}
 
-	// TODO: Implement exclude-file-regex flag
 	// TODO: Parallelise the program
-	if *exfile != "" {
-	    fmt.Println("Info: Exclude-file flag is work in-progress, skipping flag for now.")
-	}
 	if threadc <= 0 {
         log.Panicln("Error: You must select a thread count that is greater than 0.")
 	}
@@ -50,7 +46,7 @@ func parseFlags() (*string, *string, int, *string, string, error) {
 		"exclude-file",
 		"x",
 		"",
-		"regex match which files to ignore (comming soon)",
+		"bash-style glob patterns of files to ignore (comma-separated).\nPattern \"noext\" can be used for files with no extension.",
 	)
 	threadc := pflag.IntP(
 		"thread-count",

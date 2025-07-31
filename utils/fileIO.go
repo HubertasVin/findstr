@@ -43,6 +43,7 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 	}
 
 	excludeDirs := SplitStringToArray(excludeDir, ",")
+	excludeFiles := SplitStringToArray(excludeFile, ",")
 
 	var files []string
 	err = filepath.Walk(absRoot, func(path string, info os.FileInfo, walkErr error) error {
@@ -68,9 +69,14 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 			}
 		}
 
+		if fileExcludedByPattern(rel, excludeFiles) {
+			return nil
+		}
+
 		files = append(files, rel)
 		return nil
 	})
+
 	return files, err
 }
 
@@ -102,4 +108,31 @@ func makeRange(min, max int) []int {
 		a[i] = min + i
 	}
 	return a
+}
+
+func fileExcludedByPattern(rel string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return false
+	}
+
+	fileBase := filepath.Base(rel)
+	for _, pat := range patterns {
+		if pat == "" {
+			continue
+		}
+		if pat == "noext" {
+			if filepath.Ext(fileBase) == "" {
+				return true
+			}
+			continue
+		}
+		if ok, _ := filepath.Match(pat, rel); ok {
+			return true
+		}
+		if ok, _ := filepath.Match(pat, filepath.Base(rel)); ok {
+			return true
+		}
+	}
+
+	return false
 }

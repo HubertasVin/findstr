@@ -21,6 +21,10 @@ func RemoveDuplicate[T comparable](in []T) []T {
 }
 
 func SplitStringToArray(input, separator string) []string {
+	if input == "" {
+		return nil
+	}
+
 	var result []string
 	if input != "" {
 		for part := range strings.SplitSeq(input, separator) {
