@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,6 @@ import (
 // GetMatchContextLines returns the numeric range around a match.
 func GetMatchContextLines(lineNum int, fileContent []string) []int {
 	left, right := getLinesRange(lineNum, fileContent)
-
 	return makeRange(left, right)
 }
 
@@ -46,18 +46,47 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 	excludeFiles := SplitStringToArray(excludeFile, ",")
 
 	var files []string
-	err = filepath.Walk(absRoot, func(path string, info os.FileInfo, walkErr error) error {
+
+	skipSpecial := map[string]struct{}{
+		"proc":       {},
+		"sys":        {},
+		"dev":        {},
+		"run":        {},
+		"lost+found": {},
+	}
+
+	err = filepath.WalkDir(absRoot, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return nil
+			}
 			return walkErr
 		}
-		if info.IsDir() {
-			return nil
-		}
+
 		rel, err := filepath.Rel(absRoot, path)
 		if err != nil {
 			return err
 		}
 
+		// skip special virtual/volatile directories
+		if d.IsDir() {
+			for skip := range skipSpecial {
+				if rel == skip || strings.HasPrefix(rel, skip+string(os.PathSeparator)) {
+					return fs.SkipDir
+				}
+			}
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		// apply exclude-dir logic
 		dir := filepath.Dir(rel)
 		for _, ex := range excludeDirs {
 			if ex == "." {
@@ -69,6 +98,7 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 			}
 		}
 
+		// apply exclude-file logic
 		if fileExcludedByPattern(rel, excludeFiles) {
 			return nil
 		}
@@ -82,9 +112,7 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 
 func getLinesRange(lineNum int, fileContent []string) (int, int) {
 	left := subtractTo0(lineNum, 2)
-
 	right := addToBound(lineNum, 2, len(fileContent)-1)
-
 	return left, right
 }
 

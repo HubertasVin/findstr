@@ -13,7 +13,8 @@ A simple command‑line utility to search for occurrences of a regex pattern wit
 Install the latest release binary via Go:
 
 ```bash
-go install github.com/HubertasVin/findstr@latest
+go install .
+sudo mv "$(go env GOPATH)/bin/findstr" /usr/local/bin/
 ```
 
 Ensure `$GOBIN` (or `$GOPATH/bin`) is on your `PATH`:
@@ -56,7 +57,7 @@ findstr -r ./src "func main"
 Remove the installed binary:
 
 ```bash
-eval "rm \"$(go env GOBIN)/findstr\" 2>/dev/null || rm \"$(go env GOPATH)/bin/findstr\""
+eval "rm '/usr/local/bin\'"
 ```
 
 ## Contributing
