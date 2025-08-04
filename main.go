@@ -42,7 +42,7 @@ func main() {
 }
 
 func parseFlags() (*string, *string, int, *string, string, error) {
-	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore (comming soon)")
+	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
 		"exclude-file",
 		"x",
@@ -53,7 +53,7 @@ func parseFlags() (*string, *string, int, *string, string, error) {
 		"thread-count",
 		"t",
 		1,
-		"thread count to use for file parsing (comming soon)",
+		"thread count to use for file parsing",
 	)
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
 
