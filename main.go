@@ -28,10 +28,11 @@ func main() {
 		Pattern:     pattern,
 	}
 
-	// TODO: Parallelise the program
 	if threadc <= 0 {
-        log.Panicln("Error: You must select a thread count that is greater than 0.")
+		log.Panicln("Error: You must select a thread count that is greater than 0.")
+		flags.ThreadCount = 1
 	}
+
 	matches, err := utils.SearchMatchLines(flags)
 	if err != nil {
 		log.Fatal(err)

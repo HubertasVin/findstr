@@ -1,14 +1,18 @@
 package utils
 
 import (
+	"log"
 	"path/filepath"
-	"slices"
+	"regexp"
+	"sort"
+	"sync"
 
 	"github.com/HubertasVin/findstr/models"
 )
 
-// SearchMatchLines walks files under root and returns matches.
-func SearchMatchLines(flags models.ProgramFlags) ([]models.FileMatch, error) {
+// SearchMatchLines walks files under root and returns matches via a channel.
+// The returned channel is closed when all workers are done.
+func SearchMatchLines(flags models.ProgramFlags) (<-chan models.FileMatch, error) {
 	paths, err := FilePathWalkDir(
 		flags.Root,
 		flags.ExcludeDir,
@@ -19,33 +23,84 @@ func SearchMatchLines(flags models.ProgramFlags) ([]models.FileMatch, error) {
 		return nil, err
 	}
 
-	var matches []models.FileMatch
-	for _, rel := range paths {
-		full := filepath.Join(flags.Root, rel)
-		lines, err := ReadFileLines(full)
-		if err != nil {
-			return nil, err
-		}
+	re, err := regexp.Compile(flags.Pattern)
+	if err != nil {
+		return nil, err
+	}
 
-		var ctxLines, matchLines []int
-		for i, line := range lines {
-			if CheckPattern(line, flags.Pattern) {
-				ctxLines = append(ctxLines, GetMatchContextLines(i, lines)...)
-				matchLines = append(matchLines, i)
+	numWorkers := min(flags.ThreadCount, len(paths))
+
+	out := runParallel(paths, re, flags.Root, numWorkers)
+
+	return out, nil
+}
+
+func runParallel(
+	paths []string,
+	re *regexp.Regexp,
+	root string,
+	numWorkers int,
+) chan models.FileMatch {
+	jobs := make(chan string)
+	out := make(chan models.FileMatch, numWorkers*2)
+	var wg sync.WaitGroup
+
+	for range numWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for rel := range jobs {
+				processFile(rel, root, re, out)
 			}
+		}()
+	}
+
+	go func() {
+		for _, rel := range paths {
+			jobs <- rel
 		}
+		close(jobs)
+	}()
 
-		ctxLines = RemoveDuplicate(ctxLines)
-		slices.Sort(ctxLines)
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
 
-		if len(ctxLines) > 0 {
-			matches = append(matches, models.FileMatch{
-				File:            full,
-				ContextLineNums: ctxLines,
-				MatchLineNums:   matchLines,
-				FileContent:     lines,
-			})
+	return out
+}
+
+func processFile(
+	relPath, root string,
+	re *regexp.Regexp,
+	ch chan<- models.FileMatch,
+) {
+	full := filepath.Join(root, relPath)
+	lines, err := ReadFileLines(full)
+	if err != nil {
+		log.Println("Failed to read file:", relPath)
+		return
+	}
+
+	var ctxLines, matchLines []int
+	for i, line := range lines {
+		if re.MatchString(line) {
+			ctxLines = append(ctxLines, GetMatchContextLines(i, lines)...)
+			matchLines = append(matchLines, i)
 		}
 	}
-	return matches, nil
+
+	if len(ctxLines) == 0 {
+		return
+	}
+
+	ctxLines = RemoveDuplicate(ctxLines)
+	sort.Ints(ctxLines)
+
+	ch <- models.FileMatch{
+		File:            full,
+		ContextLineNums: ctxLines,
+		MatchLineNums:   matchLines,
+		FileContent:     lines,
+	}
 }
