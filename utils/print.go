@@ -14,7 +14,7 @@ import (
 // PrintMatches pretty‑prints all matches with context.
 func PrintMatches(matches <-chan models.FileMatch) {
 	header := color.New(color.Bold, color.FgWhite).SprintFunc()
-	high := color.BgRGB(0, 135, 0).AddRGB(255, 255, 255).SprintfFunc()
+	high := color.RGB(0, 135, 0).SprintfFunc()
 
     first := true
 	for m := range matches {
