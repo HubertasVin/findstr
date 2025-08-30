@@ -71,7 +71,7 @@ findstr -r ./src "func main"
 Remove the installed binary:
 
 ```bash
-eval "rm '/usr/local/bin\'"
+sudo rm /usr/local/bin/findstr
 ```
 
 ## Contributing
