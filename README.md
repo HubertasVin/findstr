@@ -35,8 +35,21 @@ Search for file content matching `<pattern>` under the specified root.
 
 * `-r, --root <dir>`
   Root directory to search (default `./`)
-* `-e, --exclude-dir <paths>` *(coming soon)*
-  Comma‑separated relative paths to ignore
+* `-e, --exclude-dir <paths>`
+  Comma-separated relative paths to ignore
+* `-x, --exclude-file <glob>`
+  Comma-separated bash-style glob patterns of files to ignore.
+  Pattern `noext` can be used for files with no extension.
+* `-t, --thread-count <num>`
+  Thread count to use for file parsing. (default `1`)
+* `-c, --context-size <num>` 
+  Number of context lines to show around a matched line. (default `2`)
+* `--style <json>` 
+  Custom style in valid json format for highlighting.
+  Available keys:
+  - `matchFg`: `<hex>`,
+  - `matchBg`: `<hex>`,
+  - `matchBold`: `<bool>`.
 
 ### Examples
 
