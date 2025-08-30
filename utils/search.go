@@ -30,7 +30,7 @@ func SearchMatchLines(flags models.ProgramFlags) (<-chan models.FileMatch, error
 
 	numWorkers := min(flags.ThreadCount, len(paths))
 
-	out := runParallel(paths, re, flags.Root, numWorkers)
+	out := runParallel(paths, re, flags.Root, numWorkers, flags.ContextSize)
 
 	return out, nil
 }
@@ -40,6 +40,7 @@ func runParallel(
 	re *regexp.Regexp,
 	root string,
 	numWorkers int,
+    contextSize int,
 ) chan models.FileMatch {
 	jobs := make(chan string)
 	out := make(chan models.FileMatch, numWorkers*2)
@@ -50,7 +51,7 @@ func runParallel(
 		go func() {
 			defer wg.Done()
 			for rel := range jobs {
-				processFile(rel, root, re, out)
+				processFile(rel, root, contextSize, re, out)
 			}
 		}()
 	}
@@ -72,6 +73,7 @@ func runParallel(
 
 func processFile(
 	relPath, root string,
+    contextSize int,
 	re *regexp.Regexp,
 	ch chan<- models.FileMatch,
 ) {
@@ -85,7 +87,7 @@ func processFile(
 	var ctxLines, matchLines []int
 	for i, line := range lines {
 		if re.MatchString(line) {
-			ctxLines = append(ctxLines, GetMatchContextLines(i, lines)...)
+			ctxLines = append(ctxLines, GetMatchContextLines(i, lines, contextSize)...)
 			matchLines = append(matchLines, i)
 		}
 	}

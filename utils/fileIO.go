@@ -9,8 +9,8 @@ import (
 )
 
 // GetMatchContextLines returns the numeric range around a match.
-func GetMatchContextLines(lineNum int, fileContent []string) []int {
-	left, right := getLinesRange(lineNum, fileContent)
+func GetMatchContextLines(lineNum int, fileContent []string, contextSize int) []int {
+	left, right := getLinesRange(lineNum, fileContent, contextSize)
 	return makeRange(left, right)
 }
 
@@ -110,9 +110,9 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 	return files, err
 }
 
-func getLinesRange(lineNum int, fileContent []string) (int, int) {
-	left := subtractTo0(lineNum, 2)
-	right := addToBound(lineNum, 2, len(fileContent)-1)
+func getLinesRange(lineNum int, fileContent []string, contextSize int) (int, int) {
+	left := subtractTo0(lineNum, contextSize)
+	right := addToBound(lineNum, contextSize, len(fileContent)-1)
 	return left, right
 }
 

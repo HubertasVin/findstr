@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/HubertasVin/findstr/models"
@@ -12,7 +11,7 @@ import (
 )
 
 func main() {
-	exdir, exfile, threadc, root, pattern, err := parseFlags()
+	exdir, exfile, threadc, context, root, pattern, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -24,24 +23,30 @@ func main() {
 		ExcludeDir:  *exdir,
 		ExcludeFile: *exfile,
 		ThreadCount: threadc,
+		ContextSize: context,
 		Root:        *root,
 		Pattern:     pattern,
 	}
 
 	if threadc <= 0 {
-		log.Panicln("Error: You must select a thread count that is greater than 0.")
-		flags.ThreadCount = 1
+		fmt.Println("Error: Thread count must be greater than 0.")
+		os.Exit(1)
+	}
+	if context < 0 {
+		fmt.Println("Error: Context size must be greater than or equal to 0.")
+		os.Exit(1)
 	}
 
 	matches, err := utils.SearchMatchLines(flags)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	utils.PrintMatches(matches)
 }
 
-func parseFlags() (*string, *string, int, *string, string, error) {
+func parseFlags() (*string, *string, int, int, *string, string, error) {
 	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
 		"exclude-file",
@@ -55,6 +60,12 @@ func parseFlags() (*string, *string, int, *string, string, error) {
 		1,
 		"thread count to use for file parsing",
 	)
+	context := pflag.IntP(
+		"context-size",
+		"c",
+		2,
+		"Number of context lines to show around a matched line.",
+	)
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
 
 	pflag.Usage = func() {
@@ -67,8 +78,8 @@ func parseFlags() (*string, *string, int, *string, string, error) {
 	pflag.Parse()
 
 	if args := pflag.Args(); len(args) == 0 {
-		return nil, nil, 0, nil, "", errors.New("you must provide a <pattern> to search for")
+		return nil, nil, 0, -1, nil, "", errors.New("you must provide a <pattern> to search for")
 	} else {
-		return exdir, exfile, *threadc, root, args[0], nil
+		return exdir, exfile, *threadc, *context, root, args[0], nil
 	}
 }
