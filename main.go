@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	exdir, exfile, threadc, context, root, pattern, err := parseFlags()
+	exdir, exfile, threadc, context, root, style, pattern, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -25,17 +25,24 @@ func main() {
 		ThreadCount: threadc,
 		ContextSize: context,
 		Root:        *root,
+		Style:       *style,
 		Pattern:     pattern,
 	}
 
 	if threadc <= 0 {
-		fmt.Println("Error: Thread count must be greater than 0.")
+		fmt.Println("Error: Thread count must be greater than 0")
 		os.Exit(1)
 	}
 	if context < 0 {
-		fmt.Println("Error: Context size must be greater than or equal to 0.")
+		fmt.Println("Error: Context size must be greater than or equal to 0")
 		os.Exit(1)
 	}
+
+    styleVal, err := utils.ParseStyle(*style)
+    if err != nil {
+        fmt.Println(err)
+        os.Exit(1)
+    }
 
 	matches, err := utils.SearchMatchLines(flags)
 	if err != nil {
@@ -43,10 +50,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	utils.PrintMatches(matches)
+	utils.PrintMatches(matches, styleVal)
 }
 
-func parseFlags() (*string, *string, int, int, *string, string, error) {
+func parseFlags() (*string, *string, int, int, *string, *string, string, error) {
 	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
 		"exclude-file",
@@ -58,15 +65,21 @@ func parseFlags() (*string, *string, int, int, *string, string, error) {
 		"thread-count",
 		"t",
 		1,
-		"thread count to use for file parsing",
+		"thread count to use for file parsing.",
 	)
 	context := pflag.IntP(
 		"context-size",
 		"c",
 		2,
-		"Number of context lines to show around a matched line.",
+		"number of context lines to show around a matched line.",
 	)
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
+	style := pflag.StringP(
+		"style",
+		"",
+		"",
+		"custom style in valid json format for highlighting.",
+	)
 
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: findstr [flags] <pattern>")
@@ -78,8 +91,8 @@ func parseFlags() (*string, *string, int, int, *string, string, error) {
 	pflag.Parse()
 
 	if args := pflag.Args(); len(args) == 0 {
-		return nil, nil, 0, -1, nil, "", errors.New("you must provide a <pattern> to search for")
+		return nil, nil, 0, -1, nil, nil, "", errors.New("you must provide a <pattern> to search for")
 	} else {
-		return exdir, exfile, *threadc, *context, root, args[0], nil
+		return exdir, exfile, *threadc, *context, root, style, args[0], nil
 	}
 }
