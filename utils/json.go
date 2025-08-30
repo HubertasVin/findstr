@@ -58,3 +58,12 @@ func parseColor(c *string, def *color.RGBA) (color.RGBA, error) {
 		return color.RGBA{255, 255, 255, 255}, nil
 	}
 }
+
+func BuildJson(fileMatches []models.JsonFileMatch) (string, error) {
+	var b []byte
+	var err error
+	if b, err = json.Marshal(fileMatches); err != nil {
+		return "", err
+	}
+	return string(b), nil
+}

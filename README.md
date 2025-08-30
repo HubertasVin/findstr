@@ -50,7 +50,8 @@ Search for file content matching `<pattern>` under the specified root.
   - `matchFg`: `<hex>`,
   - `matchBg`: `<hex>`,
   - `matchBold`: `<bool>`.
-
+* `--json`
+  Print result in json format.
 ### Examples
 
 Search for `TODO` in the current directory:

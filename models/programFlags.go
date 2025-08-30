@@ -7,5 +7,6 @@ type ProgramFlags struct {
 	ContextSize int
 	Root        string
     Style       string
+    Json        bool
 	Pattern     string
 }

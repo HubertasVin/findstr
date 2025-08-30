@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/HubertasVin/findstr/mappers"
 	"github.com/HubertasVin/findstr/models"
 	"github.com/HubertasVin/findstr/utils"
 	"github.com/spf13/pflag"
 )
 
 func main() {
-	exdir, exfile, threadc, context, root, style, pattern, err := parseFlags()
+	exdir, exfile, threadc, context, root, style, pattern, json, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -26,6 +27,7 @@ func main() {
 		ContextSize: context,
 		Root:        *root,
 		Style:       *style,
+		Json:        json,
 		Pattern:     pattern,
 	}
 
@@ -38,11 +40,11 @@ func main() {
 		os.Exit(1)
 	}
 
-    styleVal, err := utils.ParseStyle(*style)
-    if err != nil {
-        fmt.Println(err)
-        os.Exit(1)
-    }
+	styleVal, err := utils.ParseStyle(*style)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	matches, err := utils.SearchMatchLines(flags)
 	if err != nil {
@@ -50,10 +52,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	utils.PrintMatches(matches, styleVal)
+	if json {
+		matchesArr := mappers.MapChanToJsonFile(matches)
+		out, err := utils.BuildJson(matchesArr)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Println(out)
+	} else {
+		utils.PrintMatches(matches, styleVal)
+	}
 }
 
-func parseFlags() (*string, *string, int, int, *string, *string, string, error) {
+func parseFlags() (*string, *string, int, int, *string, *string, string, bool, error) {
 	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
 		"exclude-file",
@@ -61,25 +73,11 @@ func parseFlags() (*string, *string, int, int, *string, *string, string, error) 
 		"",
 		"bash-style glob patterns of files to ignore (comma-separated).\nPattern \"noext\" can be used for files with no extension.",
 	)
-	threadc := pflag.IntP(
-		"thread-count",
-		"t",
-		1,
-		"thread count to use for file parsing.",
-	)
-	context := pflag.IntP(
-		"context-size",
-		"c",
-		2,
-		"number of context lines to show around a matched line.",
-	)
+	threadc := pflag.IntP("thread-count", "t", 1, "thread count to use for file parsing.")
+	context := pflag.IntP("context-size", "c", 2, "number of context lines to show around a matched line.")
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
-	style := pflag.StringP(
-		"style",
-		"",
-		"",
-		"custom style in valid json format for highlighting.",
-	)
+	style := pflag.StringP("style", "", "", "custom style in valid json format for highlighting.")
+	json := pflag.BoolP("json", "", false, "print result in json format.")
 
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: findstr [flags] <pattern>")
@@ -91,8 +89,8 @@ func parseFlags() (*string, *string, int, int, *string, *string, string, error) 
 	pflag.Parse()
 
 	if args := pflag.Args(); len(args) == 0 {
-		return nil, nil, 0, -1, nil, nil, "", errors.New("you must provide a <pattern> to search for")
+		return nil, nil, 0, -1, nil, nil, "", false, errors.New("you must provide a <pattern> to search for")
 	} else {
-		return exdir, exfile, *threadc, *context, root, style, args[0], nil
+		return exdir, exfile, *threadc, *context, root, style, args[0], *json, nil
 	}
 }
