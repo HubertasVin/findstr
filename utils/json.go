@@ -9,11 +9,13 @@ import (
 	"github.com/icza/gox/imagex/colorx"
 )
 
+// Checks if a string is in json format.
 func IsJSON(str string) bool {
 	var js json.RawMessage
 	return json.Unmarshal([]byte(str), &js) == nil
 }
 
+// Parses style json to style model.
 func ParseStyle(s string) (models.Style, error) {
 	if s == "" {
 		s = "{}"
@@ -34,6 +36,9 @@ func ParseStyle(s string) (models.Style, error) {
 	}
 	if res.MatchBg, err = parseColor(styleDto.MatchBg, &color.RGBA{0, 138, 0, 255}); err != nil {
 		return models.Style{}, err
+	}
+	if res.MatchBold = false; styleDto.MatchBold != nil {
+		res.MatchBold = *styleDto.MatchBold
 	}
 
 	return res, nil

@@ -13,10 +13,13 @@ import (
 
 // PrintMatches pretty‑prints all matches with context.
 func PrintMatches(matches <-chan models.FileMatch, style models.Style) {
-	header := color.New(color.Bold, color.FgWhite).SprintFunc()
+	headerFn := color.New(color.Bold, color.FgWhite).SprintFunc()
 	high := color.RGB(int(style.MatchFg.R), int(style.MatchFg.G), int(style.MatchFg.B)).
-		AddBgRGB(int(style.MatchBg.R), int(style.MatchBg.G), int(style.MatchBg.B)).
-		SprintfFunc()
+		AddBgRGB(int(style.MatchBg.R), int(style.MatchBg.G), int(style.MatchBg.B))
+    if style.MatchBold {
+        high = high.Add(color.Bold)
+    }
+    highFn := high.SprintfFunc()
 
 	first := true
 	for m := range matches {
@@ -24,7 +27,7 @@ func PrintMatches(matches <-chan models.FileMatch, style models.Style) {
 			fmt.Println()
 		}
 		first = false
-		printMatchLines(m, header, high)
+		printMatchLines(m, headerFn, highFn)
 	}
 }
 

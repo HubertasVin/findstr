@@ -1,6 +1,7 @@
 package models
 
 type StyleJson struct {
-    MatchFg *string
-    MatchBg *string
+    MatchFg   *string
+    MatchBg   *string
+    MatchBold *bool
 }

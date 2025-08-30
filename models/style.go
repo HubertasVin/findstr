@@ -3,6 +3,7 @@ package models
 import "image/color"
 
 type Style struct {
-	MatchFg color.RGBA
-	MatchBg color.RGBA
+	MatchFg   color.RGBA
+	MatchBg   color.RGBA
+	MatchBold bool
 }
