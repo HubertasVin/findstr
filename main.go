@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/HubertasVin/findstr/mappers"
 	"github.com/HubertasVin/findstr/models"
@@ -12,12 +13,17 @@ import (
 )
 
 func main() {
-	exdir, exfile, threadc, context, root, style, pattern, json, err := parseFlags()
+	showVersion, exdir, exfile, threadc, context, root, style, pattern, json, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
 		pflag.Usage()
 		os.Exit(1)
+	}
+
+	if showVersion {
+		printVersion()
+		return
 	}
 
 	flags := models.ProgramFlags{
@@ -65,19 +71,20 @@ func main() {
 	}
 }
 
-func parseFlags() (*string, *string, int, int, *string, *string, string, bool, error) {
+func parseFlags() (bool, *string, *string, int, int, *string, *string, string, bool, error) {
+	showVersion := pflag.BoolP("version", "v", false, "print version information")
 	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
 		"exclude-file",
 		"x",
 		"",
-		"bash-style glob patterns of files to ignore (comma-separated).\nPattern \"noext\" can be used for files with no extension.",
+		"bash-style glob patterns of files to ignore (comma-separated).\nPattern \"noext\" can be used for files with no extension",
 	)
-	threadc := pflag.IntP("thread-count", "t", 1, "thread count to use for file parsing.")
-	context := pflag.IntP("context-size", "c", 2, "number of context lines to show around a matched line.")
+	threadc := pflag.IntP("thread-count", "t", 1, "thread count to use for file parsing")
+	context := pflag.IntP("context-size", "c", 2, "number of context lines to show around a matched line")
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
-	style := pflag.StringP("style", "", "", "custom style in valid json format for highlighting.")
-	json := pflag.BoolP("json", "", false, "print result in json format.")
+	style := pflag.StringP("style", "", "", "custom style in valid json format for highlighting")
+	json := pflag.BoolP("json", "", false, "print result in json format")
 
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: findstr [flags] <pattern>")
@@ -89,8 +96,25 @@ func parseFlags() (*string, *string, int, int, *string, *string, string, bool, e
 	pflag.Parse()
 
 	if args := pflag.Args(); len(args) == 0 {
-		return nil, nil, 0, -1, nil, nil, "", false, errors.New("you must provide a <pattern> to search for")
+		if *showVersion {
+			return true, nil, nil, 0, 0, nil, nil, "", false, nil
+		}
+		return false, nil, nil, 0, -1, nil, nil, "", false, errors.New("you must provide a <pattern> to search for")
 	} else {
-		return exdir, exfile, *threadc, *context, root, style, args[0], *json, nil
+		return *showVersion, exdir, exfile, *threadc, *context, root, style, args[0], *json, nil
+	}
+}
+
+func printVersion() {
+	buildInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		fmt.Println("Unable to determine version information.")
+		return
+	}
+
+	if buildInfo.Main.Version != "" {
+		fmt.Printf("Version: %s\n", buildInfo.Main.Version)
+	} else {
+		fmt.Println("Version: unknown")
 	}
 }
