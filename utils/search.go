@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"sync"
 
 	"github.com/HubertasVin/findstr/models"
+	"github.com/remeh/sizedwaitgroup"
 )
 
 // SearchMatchLines walks files under root and returns matches via a channel.
@@ -40,30 +40,19 @@ func runParallel(
 	re *regexp.Regexp,
 	root string,
 	numWorkers int,
-    contextSize int,
+	contextSize int,
 ) chan models.FileMatch {
-	jobs := make(chan string)
 	out := make(chan models.FileMatch, numWorkers*2)
-	var wg sync.WaitGroup
-
-	for range numWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for rel := range jobs {
-				processFile(rel, root, contextSize, re, out)
-			}
-		}()
-	}
+	wg := sizedwaitgroup.New(numWorkers)
 
 	go func() {
 		for _, rel := range paths {
-			jobs <- rel
+			wg.Add()
+			go func(rel string) {
+				defer wg.Done()
+				processFile(rel, root, contextSize, re, out)
+			}(rel)
 		}
-		close(jobs)
-	}()
-
-	go func() {
 		wg.Wait()
 		close(out)
 	}()
@@ -73,7 +62,7 @@ func runParallel(
 
 func processFile(
 	relPath, root string,
-    contextSize int,
+	contextSize int,
 	re *regexp.Regexp,
 	ch chan<- models.FileMatch,
 ) {
