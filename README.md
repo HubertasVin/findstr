@@ -13,14 +13,23 @@ A simple command‑line utility to search for occurrences of a regex pattern wit
 Install the latest release binary via Go:
 
 ```bash
-go install github.com/HubertasVin/findstr
-sudo mv "$(go env GOPATH)/bin/findstr" /usr/local/bin/
+sudo ln -sf "$(go env GOPATH)/bin/findstr" /usr/local/bin/findstr
+go install github.com/HubertasVin/findstr@latest
 ```
 
-Ensure `$GOBIN` (or `$GOPATH/bin`) is on your `PATH`:
+## Update local binary
 
 ```bash
-export PATH="$(go env GOBIN):$PATH"
+go install github.com/HubertasVin/findstr@latest
+```
+
+## Uninstall
+
+Remove the installed binary:
+
+```bash
+sudo rm -f /usr/local/bin/findstr
+rm -f "$(go env GOPATH)/bin/findstr"
 ```
 
 ## Usage
@@ -64,14 +73,6 @@ Search in a specific folder:
 
 ```bash
 findstr -r ./src "func main"
-```
-
-## Uninstall
-
-Remove the installed binary:
-
-```bash
-sudo rm /usr/local/bin/findstr
 ```
 
 ## Contributing
