@@ -8,6 +8,7 @@ import (
 
 	"github.com/HubertasVin/findstr/models"
 	"github.com/remeh/sizedwaitgroup"
+    "github.com/HubertasVin/chanseq"
 )
 
 // SearchMatchLines walks files under root and returns matches via a channel.
@@ -41,22 +42,24 @@ func runParallel(
 	root string,
 	numWorkers int,
 	contextSize int,
-) chan models.FileMatch {
-	out := make(chan models.FileMatch, numWorkers*2)
+) <-chan models.FileMatch {
+	tmp := make(chan chanseq.Seq[models.FileMatch], numWorkers*2)
 	wg := sizedwaitgroup.New(numWorkers)
 
 	go func() {
-		for _, rel := range paths {
+		for i, rel := range paths {
 			wg.Add()
 			go func(rel string) {
 				defer wg.Done()
-				processFile(rel, root, contextSize, re, out)
+                match := processFile(rel, root, contextSize, re)
+                tmp <- chanseq.Seq[models.FileMatch]{Index: i, Val: match}
 			}(rel)
 		}
 		wg.Wait()
-		close(out)
+		close(tmp)
 	}()
 
+    out := chanseq.ReorderByIndex(tmp)
 	return out
 }
 
@@ -64,13 +67,12 @@ func processFile(
 	relPath, root string,
 	contextSize int,
 	re *regexp.Regexp,
-	ch chan<- models.FileMatch,
-) {
+) *models.FileMatch {
 	full := filepath.Join(root, relPath)
 	lines, err := ReadFileLines(full)
 	if err != nil {
 		log.Println("Failed to read file:", relPath)
-		return
+		return nil
 	}
 
 	var ctxLines, matchLines []int
@@ -80,15 +82,14 @@ func processFile(
 			matchLines = append(matchLines, i)
 		}
 	}
-
 	if len(ctxLines) == 0 {
-		return
+		return nil
 	}
 
 	ctxLines = RemoveDuplicate(ctxLines)
 	sort.Ints(ctxLines)
 
-	ch <- models.FileMatch{
+	return &models.FileMatch{
 		File:            full,
 		ContextLineNums: ctxLines,
 		MatchLineNums:   matchLines,

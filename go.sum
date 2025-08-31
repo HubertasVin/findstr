@@ -1,3 +1,5 @@
+github.com/HubertasVin/chanseq v0.1.0 h1:oHSGzAgcOK5U5+hd+vQF8ARYYGQ8TDlSEttqx7g5AhA=
+github.com/HubertasVin/chanseq v0.1.0/go.mod h1:CJsEsf/pV6R2Tr0p+iT4W3BBNpX4xs87Wv4H/8dgYB8=
 github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
 github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
 github.com/icza/gox v0.2.0 h1:+0N8PCt9/QSx+k0dqe/wdlXJNR/haaPsPwrTJTNDeyk=
