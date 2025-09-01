@@ -1,64 +1,184 @@
 package utils
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
-	"slices"
+	"path/filepath"
 	"strconv"
-	"text/tabwriter"
+	"strings"
 
 	"github.com/HubertasVin/findstr/models"
 	"github.com/fatih/color"
 )
 
-// PrintMatches pretty‑prints all matches with context.
-func PrintMatches(matches <-chan models.FileMatch, style models.Style) {
-	headerFn := color.New(color.Bold, color.FgWhite).SprintFunc()
+type fileVars struct {
+	filepath string
+	dir      string
+	base     string
+	clean    string
+}
+
+func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout, style models.Style, contextSize int) {
+	w := bufio.NewWriterSize(os.Stdout, 1<<20)
+	defer w.Flush()
+
+	headerFn := color.New(color.Bold, color.FgWhite).SprintfFunc()
 	high := color.RGB(int(style.MatchFg.R), int(style.MatchFg.G), int(style.MatchFg.B)).
 		AddBgRGB(int(style.MatchBg.R), int(style.MatchBg.G), int(style.MatchBg.B))
 	if style.MatchBold {
 		high = high.Add(color.Bold)
 	}
 	highFn := high.SprintfFunc()
+	const reset = "\x1b[0m"
+	const tabWidth = 4
 
 	first := true
-	for m := range matches {
+	for fm := range matches {
 		if !first {
-			fmt.Println()
+			fmt.Fprintln(w)
 		}
 		first = false
-		printMatchLines(m, headerFn, highFn)
+
+		fv := fileVars{
+			filepath: fm.File,
+			dir:      filepath.Dir(fm.File),
+			base:     filepath.Base(fm.File),
+			clean:    filepath.Clean(fm.File),
+		}
+
+		leftWidth := 0
+		if layout.AutoWidth && len(fm.ContextLineNums) > 0 {
+			leftWidth = numDigits(fm.ContextLineNums[len(fm.ContextLineNums)-1] + 1)
+		}
+
+		if len(layout.Header) > 0 {
+			line := renderTokens(layout.Header, fv, 0, "", leftWidth, layout.AlignRight, tabWidth)
+			fmt.Fprintln(w, headerFn("%s", line))
+		}
+
+		matchSet := make(map[int]struct{}, len(fm.MatchLineNums))
+		for _, ln := range fm.MatchLineNums {
+			matchSet[ln] = struct{}{}
+		}
+
+		prev := -1
+		for _, ln := range fm.ContextLineNums {
+			if prev != -1 && ln-prev >= contextSize {
+				fmt.Fprintln(w, headerFn("%s", "..."))
+			}
+
+			text := fm.FileContent[ln]
+			var tokens []models.Token
+			if _, ok := matchSet[ln]; ok {
+				tokens = layout.Match
+			} else {
+				tokens = layout.Context
+			}
+
+			line := renderTokens(tokens, fv, ln+1, text, leftWidth, layout.AlignRight, tabWidth)
+
+			if _, ok := matchSet[ln]; ok {
+				fmt.Fprint(w, highFn("%s", line))
+				fmt.Fprint(w, reset)
+				fmt.Fprint(w, "\n")
+			} else {
+				fmt.Fprintln(w, line)
+			}
+			prev = ln
+		}
 	}
 }
 
-func printMatchLines(
-	m models.FileMatch,
-	headerFn func(...any) string,
-	highFn func(string, ...any) string,
-) {
-	const reset = "\x1b[0m"
-	tw := tabwriter.NewWriter(os.Stdout, 0, 1, 4, ' ', tabwriter.TabIndent)
-
-	last := m.ContextLineNums[len(m.ContextLineNums)-1]
-	lnWidth := len(strconv.Itoa(last + 1))
-
-	fmt.Fprintln(tw, headerFn("--- "+m.File))
-
-	prev := -1
-	for _, ln := range m.ContextLineNums {
-		if prev != -1 && ln-prev >= 2 {
-			fmt.Fprintln(tw, headerFn("..."))
+func renderTokens(
+	toks []models.Token,
+	fv fileVars,
+	ln int,
+	text string,
+	lnWidth int,
+	alignRight bool,
+	tabWidth int,
+) string {
+	var buf bytes.Buffer
+	for _, t := range toks {
+		if !t.IsVar {
+			buf.WriteString(t.Lit)
+			continue
 		}
-
-		numFmt := fmt.Sprintf("%-*d", lnWidth, ln+1)
-		text := fmt.Sprintf("%s | %s", numFmt, m.FileContent[ln])
-
-		if slices.Contains(m.MatchLineNums, ln) {
-			fmt.Fprintln(tw, highFn("%s", text)+reset)
-		} else {
-			fmt.Fprintln(tw, text)
+		switch t.Var {
+		case models.VarFilepath:
+			buf.WriteString(fv.filepath)
+		case models.VarDir:
+			buf.WriteString(fv.dir)
+		case models.VarBase:
+			buf.WriteString(fv.base)
+		case models.VarClean:
+			buf.WriteString(fv.clean)
+		case models.VarLn:
+			buf.WriteString(renderLineNum(ln, lnWidth, alignRight))
+		case models.VarText:
+			// Expand tabs relative to the start of the text (origin 0), not the whole line.
+			buf.WriteString(expandTabs(text, 0, tabWidth))
 		}
-		tw.Flush()
-		prev = ln
 	}
+	return buf.String()
+}
+
+// expands \t into spaces using fixed-width tab stops, origin = startCol
+func expandTabs(s string, startCol, tabWidth int) string {
+	if tabWidth <= 0 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s) + 8)
+	col := startCol
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '\t' {
+			n := tabWidth - (col % tabWidth)
+			if n == 0 {
+				n = tabWidth
+			}
+			for j := 0; j < n; j++ {
+				b.WriteByte(' ')
+				col++
+			}
+			continue
+		}
+		b.WriteByte(c)
+		if c == '\n' || c == '\r' {
+			col = 0
+		} else {
+			col++
+		}
+	}
+	return b.String()
+}
+
+func renderLineNum(ln int, lnWidth int, alignRight bool) string {
+	if alignRight && lnWidth > 0 {
+		s := strconv.Itoa(ln)
+		if pad := lnWidth - len(s); pad > 0 {
+			return fmt.Sprintf("%*s%s", pad, "", s)
+		}
+		return s
+	}
+	return strconv.Itoa(ln)
+}
+
+func numDigits(n int) int {
+	if n < 10 {
+		return 1
+	}
+	if n < 100 {
+		return 2
+	}
+	if n < 1000 {
+		return 3
+	}
+	if n < 10000 {
+		return 4
+	}
+	return len(strconv.Itoa(n))
 }

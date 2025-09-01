@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -68,7 +69,6 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 			return err
 		}
 
-		// skip special virtual/volatile directories
 		if d.IsDir() {
 			for skip := range skipSpecial {
 				if rel == skip || strings.HasPrefix(rel, skip+string(os.PathSeparator)) {
@@ -86,7 +86,6 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 			return nil
 		}
 
-		// apply exclude-dir logic
 		dir := filepath.Dir(rel)
 		for _, ex := range excludeDirs {
 			if ex == "." {
@@ -98,7 +97,6 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 			}
 		}
 
-		// apply exclude-file logic
 		if fileExcludedByPattern(rel, excludeFiles) {
 			return nil
 		}
@@ -162,5 +160,26 @@ func fileExcludedByPattern(rel string, patterns []string) bool {
 		}
 	}
 
+	return false
+}
+
+// IsLikelyBinary does a small read and checks for NUL bytes.
+func IsLikelyBinary(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	buf := make([]byte, 8192)
+	n, _ := io.ReadFull(f, buf)
+	if n < 0 {
+		return false
+	}
+	for i := 0; i < n; i++ {
+		if buf[i] == 0 {
+			return true
+		}
+	}
 	return false
 }

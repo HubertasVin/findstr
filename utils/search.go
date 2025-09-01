@@ -3,16 +3,14 @@ package utils
 import (
 	"log"
 	"path/filepath"
-	"regexp"
 	"sort"
+	"strings"
+	"sync"
 
+	"github.com/HubertasVin/chanseq"
 	"github.com/HubertasVin/findstr/models"
-	"github.com/remeh/sizedwaitgroup"
-    "github.com/HubertasVin/chanseq"
 )
 
-// SearchMatchLines walks files under root and returns matches via a channel.
-// The returned channel is closed when all workers are done.
 func SearchMatchLines(flags models.ProgramFlags) (<-chan models.FileMatch, error) {
 	paths, err := FilePathWalkDir(
 		flags.Root,
@@ -24,51 +22,66 @@ func SearchMatchLines(flags models.ProgramFlags) (<-chan models.FileMatch, error
 		return nil, err
 	}
 
-	re, err := regexp.Compile(flags.Pattern)
-	if err != nil {
-		return nil, err
-	}
-
 	numWorkers := min(flags.ThreadCount, len(paths))
-
-	out := runParallel(paths, re, flags.Root, numWorkers, flags.ContextSize)
-
+	out := runParallel(paths, flags.Pattern, flags.Root, numWorkers, flags.ContextSize)
 	return out, nil
 }
 
 func runParallel(
 	paths []string,
-	re *regexp.Regexp,
+	pattern string,
 	root string,
 	numWorkers int,
 	contextSize int,
 ) <-chan models.FileMatch {
+	type job struct {
+		idx int
+		rel string
+	}
+
+	jobs := make(chan job, numWorkers*2)
 	tmp := make(chan chanseq.Seq[models.FileMatch], numWorkers*2)
-	wg := sizedwaitgroup.New(numWorkers)
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+	for w := 0; w < numWorkers; w++ {
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				match := processFile(j.rel, root, contextSize, pattern)
+				tmp <- chanseq.Seq[models.FileMatch]{Index: j.idx, Val: match}
+			}
+		}()
+	}
 
 	go func() {
 		for i, rel := range paths {
-			wg.Add()
-			go func(rel string) {
-				defer wg.Done()
-                match := processFile(rel, root, contextSize, re)
-                tmp <- chanseq.Seq[models.FileMatch]{Index: i, Val: match}
-			}(rel)
+			jobs <- job{idx: i, rel: rel}
 		}
+		close(jobs)
+	}()
+
+	go func() {
 		wg.Wait()
 		close(tmp)
 	}()
 
-    out := chanseq.ReorderByIndex(tmp)
+	out := chanseq.ReorderByIndex(tmp)
 	return out
 }
 
 func processFile(
 	relPath, root string,
 	contextSize int,
-	re *regexp.Regexp,
+	pattern string,
 ) *models.FileMatch {
 	full := filepath.Join(root, relPath)
+
+	// Cheap binary check to avoid scanning non-text files.
+	if IsLikelyBinary(full) {
+		return nil
+	}
+
 	lines, err := ReadFileLines(full)
 	if err != nil {
 		log.Println("Failed to read file:", relPath)
@@ -77,7 +90,7 @@ func processFile(
 
 	var ctxLines, matchLines []int
 	for i, line := range lines {
-		if re.MatchString(line) {
+		if strings.Contains(line, pattern) {
 			ctxLines = append(ctxLines, GetMatchContextLines(i, lines, contextSize)...)
 			matchLines = append(matchLines, i)
 		}

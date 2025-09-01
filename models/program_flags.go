@@ -6,7 +6,6 @@ type ProgramFlags struct {
 	ThreadCount int
 	ContextSize int
 	Root        string
-    Style       string
     Json        bool
 	Pattern     string
 }
