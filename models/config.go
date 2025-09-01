@@ -1,30 +1,30 @@
 package models
 
 type PartsJSON struct {
-	Parts []string `json:"parts"`
+	Parts []string `toml:"parts"`
 }
 
 type LayoutJSON struct {
-	Align     string    `json:"align,omitempty"`     // "left" or "right"
-	AutoWidth *bool     `json:"autoWidth,omitempty"` // nil => default true
-	Header    PartsJSON `json:"header"`
-	Match     PartsJSON `json:"match"`
-	Context   PartsJSON `json:"context"`
+	Align     string    `toml:"align,omitempty"`
+	AutoWidth *bool     `toml:"autoWidth,omitempty"`
+	Header    PartsJSON `toml:"header"`
+	Match     PartsJSON `toml:"match"`
+	Context   PartsJSON `toml:"context"`
 }
 
 type StyleJson struct {
-	Fg   *string `json:"fg"`
-	Bg   *string `json:"bg"`
-	Bold *bool   `json:"bold"`
+	Fg   *string `toml:"fg"`
+	Bg   *string `toml:"bg"`
+	Bold *bool   `toml:"bold"`
 }
 
 type ThemeJSON struct {
-	Styles map[string]StyleJson `json:"styles"`
+	Styles map[string]StyleJson `toml:"styles"`
 }
 
 type ConfigJSON struct {
-	Theme  ThemeJSON  `json:"theme"`
-	Layout LayoutJSON `json:"layout"`
+	Theme  ThemeJSON  `toml:"theme"`
+	Layout LayoutJSON `toml:"layout"`
 }
 
 type VarKind uint8

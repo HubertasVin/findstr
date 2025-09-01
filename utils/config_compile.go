@@ -46,8 +46,8 @@ func defaultThemeResolved() models.Theme {
 	return models.Theme{
 		Styles: map[string]models.Style{
 			"header":  {Fg: color.RGBA{255, 255, 255, 255}, Bg: color.RGBA{0, 0, 0, 0}, Bold: true},
-			"match":   {Fg: color.RGBA{255, 255, 255, 255}, Bg: color.RGBA{0, 138, 0, 255}, Bold: true},
-			"context": {Fg: color.RGBA{204, 204, 204, 255}, Bg: color.RGBA{0, 0, 0, 0}, Bold: false},
+			"match":   {Fg: color.RGBA{255, 255, 255, 255}, Bg: color.RGBA{0, 0, 0, 0}, Bold: true},
+			"context": {Fg: color.RGBA{255, 255, 255, 255}, Bg: color.RGBA{0, 0, 0, 0}, Bold: false},
 		},
 	}
 }

@@ -57,7 +57,7 @@ func main() {
 
 	cl, matchStyle, err := utils.LoadConfig()
 	if err != nil {
-		fmt.Println("Error: While parsing json: " + err.Error())
+		fmt.Println("Error: While loading config: " + err.Error())
 		os.Exit(1)
 	}
 
@@ -94,7 +94,7 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 	context := pflag.IntP("context", "c", 2, "number of context lines to show around a matched line")
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
 	jsonOut := pflag.Bool("json", false, "print result in json format")
-	createConfig := pflag.Bool("create-config", false, "create default config at $HOME/.config/findstr.conf and exit")
+	createConfig := pflag.Bool("create-config", false, "create default config at $HOME/.config/findstr.toml and exit")
 
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: findstr [flags] <pattern>")
@@ -109,7 +109,7 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 		if *showVersion {
 			return *showVersion, nil, nil, 0, 0, nil, "", false, false, nil
 		}
-        if *createConfig {
+		if *createConfig {
 			return false, nil, nil, 0, 0, nil, "", false, *createConfig, nil
 		}
 		return false, nil, nil, 0, -1, nil, "", false, *createConfig, errors.New(
