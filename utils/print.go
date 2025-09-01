@@ -20,17 +20,13 @@ type fileVars struct {
 	clean    string
 }
 
-func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout, style models.Style, contextSize int) {
+func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout, theme models.Theme, contextSize int) {
 	w := bufio.NewWriterSize(os.Stdout, 1<<20)
 	defer w.Flush()
 
-	headerFn := color.New(color.Bold, color.FgWhite).SprintfFunc()
-	high := color.RGB(int(style.MatchFg.R), int(style.MatchFg.G), int(style.MatchFg.B)).
-		AddBgRGB(int(style.MatchBg.R), int(style.MatchBg.G), int(style.MatchBg.B))
-	if style.MatchBold {
-		high = high.Add(color.Bold)
-	}
-	highFn := high.SprintfFunc()
+	headerStyleFn := buildStyleFn(theme.Styles["header"])
+	matchStyleFn := buildStyleFn(theme.Styles["match"])
+	contextStyleFn := buildStyleFn(theme.Styles["context"])
 	const reset = "\x1b[0m"
 	const tabWidth = 4
 
@@ -55,7 +51,7 @@ func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout,
 
 		if len(layout.Header) > 0 {
 			line := renderTokens(layout.Header, fv, 0, "", leftWidth, layout.AlignRight, tabWidth)
-			fmt.Fprintln(w, headerFn("%s", line))
+			fmt.Fprintln(w, headerStyleFn("%s", line))
 		}
 
 		matchSet := make(map[int]struct{}, len(fm.MatchLineNums))
@@ -66,7 +62,7 @@ func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout,
 		prev := -1
 		for _, ln := range fm.ContextLineNums {
 			if prev != -1 && ln-prev >= contextSize {
-				fmt.Fprintln(w, headerFn("%s", "..."))
+				fmt.Fprintln(w, headerStyleFn("%s", "..."))
 			}
 
 			text := fm.FileContent[ln]
@@ -80,15 +76,26 @@ func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout,
 			line := renderTokens(tokens, fv, ln+1, text, leftWidth, layout.AlignRight, tabWidth)
 
 			if _, ok := matchSet[ln]; ok {
-				fmt.Fprint(w, highFn("%s", line))
-				fmt.Fprint(w, reset)
-				fmt.Fprint(w, "\n")
+				fmt.Fprint(w, matchStyleFn("%s", line))
 			} else {
-				fmt.Fprintln(w, line)
+				fmt.Fprint(w, contextStyleFn("%s", line))
 			}
+            fmt.Fprint(w, reset)
+            fmt.Fprintln(w)
 			prev = ln
 		}
 	}
+}
+
+func buildStyleFn(s models.Style) func(format string, a ...any) string {
+	c := color.RGB(int(s.Fg.R), int(s.Fg.G), int(s.Fg.B))
+	if s.Bg.A != 0 {
+		c = c.AddBgRGB(int(s.Bg.R), int(s.Bg.G), int(s.Bg.B))
+	}
+	if s.Bold {
+		c = c.Add(color.Bold)
+	}
+	return c.SprintfFunc()
 }
 
 func renderTokens(
@@ -118,7 +125,6 @@ func renderTokens(
 		case models.VarLn:
 			buf.WriteString(renderLineNum(ln, lnWidth, alignRight))
 		case models.VarText:
-			// Expand tabs relative to the start of the text (origin 0), not the whole line.
 			buf.WriteString(expandTabs(text, 0, tabWidth))
 		}
 	}
