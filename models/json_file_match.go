@@ -1,11 +1,11 @@
 package models
 
 type JsonFileMatch struct {
-	FileName       string
-	MatchedContent []LineContent
+	FileName       string        `json:"fileName"`
+	MatchedContent []LineContent `json:"matchedContent"`
 }
 
 type LineContent struct {
-	LineNumber int
-	Content    string
+	LineNumber int    `json:"lineNumber"`
+	Content    string `json:"content"`
 }
