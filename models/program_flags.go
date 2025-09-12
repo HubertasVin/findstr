@@ -6,6 +6,7 @@ type ProgramFlags struct {
 	ThreadCount int
 	ContextSize int
 	Root        string
+	SkipGit     bool
     Json        bool
 	Pattern     string
 }

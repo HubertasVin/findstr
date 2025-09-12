@@ -37,23 +37,44 @@ func ReadFileLines(path string) ([]string, error) {
 }
 
 // FilePathWalkDir returns a slice of relative file paths under root. Cancellable.
-func FilePathWalkDir(ctx context.Context, root, excludeDir, excludeFile string, threadCount int) ([]string, error) {
+func FilePathWalkDir(
+	ctx context.Context,
+	root, excludeDir, excludeFile string,
+	threadCount int,
+	skipGit bool,
+) ([]string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
 
-	excludeDirs := SplitStringToArray(excludeDir, ",")
+	exNames := map[string]struct{}{}
+	exSubpathsAbs := []string{}
+	for _, ex := range SplitStringToArray(excludeDir, ",") {
+		if ex == "" {
+			continue
+		}
+		p := filepath.Clean(ex)
+		if p == "." {
+			return []string{}, nil
+		}
+		if strings.ContainsRune(p, os.PathSeparator) {
+			exSubpathsAbs = append(exSubpathsAbs, filepath.Join(absRoot, p))
+		} else {
+			exNames[p] = struct{}{}
+		}
+	}
+	if skipGit {
+		exNames[".git"] = struct{}{}
+	}
+
 	excludeFiles := SplitStringToArray(excludeFile, ",")
 
 	var files []string
+	sep := string(os.PathSeparator)
 
 	skipSpecial := map[string]struct{}{
-		"proc":       {},
-		"sys":        {},
-		"dev":        {},
-		"run":        {},
-		"lost+found": {},
+		"proc": {}, "sys": {}, "dev": {}, "run": {}, "lost+found": {},
 	}
 
 	err = filepath.WalkDir(absRoot, func(path string, d fs.DirEntry, walkErr error) error {
@@ -62,7 +83,6 @@ func FilePathWalkDir(ctx context.Context, root, excludeDir, excludeFile string, 
 			return fs.SkipAll
 		default:
 		}
-
 		if walkErr != nil {
 			if os.IsNotExist(walkErr) {
 				return nil
@@ -76,8 +96,22 @@ func FilePathWalkDir(ctx context.Context, root, excludeDir, excludeFile string, 
 		}
 
 		if d.IsDir() {
-			for skip := range skipSpecial {
-				if rel == skip || strings.HasPrefix(rel, skip+string(os.PathSeparator)) {
+			base := filepath.Base(path)
+
+			if _, ok := skipSpecial[rel]; ok {
+				return fs.SkipDir
+			}
+			for s := range skipSpecial {
+				if rel == s || strings.HasPrefix(rel, s+sep) {
+					return fs.SkipDir
+				}
+			}
+
+			if _, ok := exNames[base]; ok {
+				return fs.SkipDir
+			}
+			for _, exAbs := range exSubpathsAbs {
+				if path == exAbs || strings.HasPrefix(path, exAbs+sep) {
 					return fs.SkipDir
 				}
 			}
@@ -90,17 +124,6 @@ func FilePathWalkDir(ctx context.Context, root, excludeDir, excludeFile string, 
 		}
 		if !info.Mode().IsRegular() {
 			return nil
-		}
-
-		dir := filepath.Dir(rel)
-		for _, ex := range excludeDirs {
-			if ex == "." {
-				return nil
-			}
-			relToEx, err := filepath.Rel(ex, dir)
-			if err == nil && !strings.HasPrefix(relToEx, "..") {
-				return nil
-			}
 		}
 
 		if fileExcludedByPattern(rel, excludeFiles) {
@@ -185,7 +208,7 @@ func IsLikelyBinary(path string) bool {
 	if n < 0 {
 		return false
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if buf[i] == 0 {
 			return true
 		}

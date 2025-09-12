@@ -20,7 +20,7 @@ func main() {
 	defer stop()
 	signal.Ignore(syscall.SIGPIPE)
 
-	showVersion, exdir, exfile, threadc, contextSize, root, pattern, jsonOut, createConfig, err := parseFlags()
+	showVersion, exdir, exfile, threadc, contextSize, root, pattern, skipGit, jsonOut, createConfig, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -49,6 +49,7 @@ func main() {
 		ThreadCount: threadc,
 		ContextSize: contextSize,
 		Root:        *root,
+		SkipGit:     skipGit,
 		Json:        jsonOut,
 		Pattern:     pattern,
 	}
@@ -71,7 +72,7 @@ func main() {
 	matches, err := utils.SearchMatchLines(ctx, flags)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			os.Exit(130) // interrupted
+			os.Exit(130)
 		}
 		fmt.Println("Error: While searching for matches: " + err.Error())
 		os.Exit(1)
@@ -91,13 +92,12 @@ func main() {
 	utils.PrintMatches(ctx, matches, cl, theme, contextSize)
 
 	if ctx.Err() != nil {
-		// ensure styles are reset and we end on a fresh line
 		fmt.Fprint(os.Stdout, "\x1b[0m\x1b[K\n")
 		os.Exit(130)
 	}
 }
 
-func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool, error) {
+func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool, bool, error) {
 	showVersion := pflag.BoolP("version", "v", false, "print version information")
 	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
@@ -109,6 +109,7 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 	threadc := pflag.IntP("thread", "t", 1, "thread count to use for file parsing")
 	context := pflag.IntP("context", "c", 2, "number of context lines to show around a matched line")
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
+	skipGit := pflag.BoolP("git", "g", false, "skip .git directory")
 	jsonOut := pflag.Bool("json", false, "print result in json format")
 	createConfig := pflag.Bool("create-config", false, "create default config at $HOME/.config/findstr.toml and exit")
 
@@ -123,16 +124,16 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 
 	if args := pflag.Args(); len(args) == 0 {
 		if *showVersion {
-			return *showVersion, nil, nil, 0, 0, nil, "", false, false, nil
+			return *showVersion, nil, nil, 0, 0, nil, "", false, false, false, nil
 		}
 		if *createConfig {
-			return false, nil, nil, 0, 0, nil, "", false, *createConfig, nil
+			return false, nil, nil, 0, 0, nil, "", false, false, *createConfig, nil
 		}
-		return false, nil, nil, 0, -1, nil, "", false, *createConfig, errors.New(
+		return false, nil, nil, 0, -1, nil, "", false, false, false, errors.New(
 			"you must provide a <pattern> to search for",
 		)
 	} else {
-		return *showVersion, exdir, exfile, *threadc, *context, root, args[0], *jsonOut, *createConfig, nil
+		return *showVersion, exdir, exfile, *threadc, *context, root, args[0], *skipGit, *jsonOut, *createConfig, nil
 	}
 }
 

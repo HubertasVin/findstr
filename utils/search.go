@@ -18,6 +18,7 @@ func SearchMatchLines(ctx context.Context, flags models.ProgramFlags) (<-chan mo
 		flags.ExcludeDir,
 		flags.ExcludeFile,
 		flags.ThreadCount,
+		flags.SkipGit,
 	)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func runParallel(
 
 	var wg sync.WaitGroup
 	wg.Add(numWorkers)
-	for w := 0; w < numWorkers; w++ {
+	for range numWorkers {
 		go func() {
 			defer wg.Done()
 			for {
