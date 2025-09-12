@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"log"
 	"path/filepath"
 	"sort"
@@ -11,8 +12,8 @@ import (
 	"github.com/HubertasVin/findstr/models"
 )
 
-func SearchMatchLines(flags models.ProgramFlags) (<-chan models.FileMatch, error) {
-	paths, err := FilePathWalkDir(
+func SearchMatchLines(ctx context.Context, flags models.ProgramFlags) (<-chan models.FileMatch, error) {
+	paths, err := FilePathWalkDir(ctx,
 		flags.Root,
 		flags.ExcludeDir,
 		flags.ExcludeFile,
@@ -23,11 +24,12 @@ func SearchMatchLines(flags models.ProgramFlags) (<-chan models.FileMatch, error
 	}
 
 	numWorkers := min(flags.ThreadCount, len(paths))
-	out := runParallel(paths, flags.Pattern, flags.Root, numWorkers, flags.ContextSize)
+	out := runParallel(ctx, paths, flags.Pattern, flags.Root, numWorkers, flags.ContextSize)
 	return out, nil
 }
 
 func runParallel(
+	ctx context.Context,
 	paths []string,
 	pattern string,
 	root string,
@@ -47,16 +49,32 @@ func runParallel(
 	for w := 0; w < numWorkers; w++ {
 		go func() {
 			defer wg.Done()
-			for j := range jobs {
-				match := processFile(j.rel, root, contextSize, pattern)
-				tmp <- chanseq.Seq[models.FileMatch]{Index: j.idx, Val: match}
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case j, ok := <-jobs:
+					if !ok {
+						return
+					}
+					match := processFile(j.rel, root, contextSize, pattern)
+					select {
+					case <-ctx.Done():
+						return
+					case tmp <- chanseq.Seq[models.FileMatch]{Index: j.idx, Val: match}:
+					}
+				}
 			}
 		}()
 	}
 
 	go func() {
 		for i, rel := range paths {
-			jobs <- job{idx: i, rel: rel}
+			select {
+			case <-ctx.Done():
+				break
+			case jobs <- job{idx: i, rel: rel}:
+			}
 		}
 		close(jobs)
 	}()
@@ -77,7 +95,6 @@ func processFile(
 ) *models.FileMatch {
 	full := filepath.Join(root, relPath)
 
-	// Cheap binary check to avoid scanning non-text files.
 	if IsLikelyBinary(full) {
 		return nil
 	}

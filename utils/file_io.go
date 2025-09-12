@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"io/fs"
 	"os"
@@ -15,7 +16,6 @@ func GetMatchContextLines(lineNum int, fileContent []string, contextSize int) []
 	return makeRange(left, right)
 }
 
-// ReadFileLines reads an entire file into a slice of lines.
 func ReadFileLines(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -36,8 +36,8 @@ func ReadFileLines(path string) ([]string, error) {
 	return lines, nil
 }
 
-// FilePathWalkDir returns a slice of relative file paths under root.
-func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]string, error) {
+// FilePathWalkDir returns a slice of relative file paths under root. Cancellable.
+func FilePathWalkDir(ctx context.Context, root, excludeDir, excludeFile string, threadCount int) ([]string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -57,6 +57,12 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 	}
 
 	err = filepath.WalkDir(absRoot, func(path string, d fs.DirEntry, walkErr error) error {
+		select {
+		case <-ctx.Done():
+			return fs.SkipAll
+		default:
+		}
+
 		if walkErr != nil {
 			if os.IsNotExist(walkErr) {
 				return nil
@@ -105,6 +111,9 @@ func FilePathWalkDir(root, excludeDir, excludeFile string, threadCount int) ([]s
 		return nil
 	})
 
+	if err == fs.SkipAll && ctx.Err() != nil {
+		return files, context.Canceled
+	}
 	return files, err
 }
 

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"runtime/debug"
+	"syscall"
 
 	"github.com/HubertasVin/findstr/mappers"
 	"github.com/HubertasVin/findstr/models"
@@ -13,7 +16,11 @@ import (
 )
 
 func main() {
-	showVersion, exdir, exfile, threadc, context, root, pattern, jsonOut, createConfig, err := parseFlags()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	signal.Ignore(syscall.SIGPIPE)
+
+	showVersion, exdir, exfile, threadc, contextSize, root, pattern, jsonOut, createConfig, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -40,7 +47,7 @@ func main() {
 		ExcludeDir:  *exdir,
 		ExcludeFile: *exfile,
 		ThreadCount: threadc,
-		ContextSize: context,
+		ContextSize: contextSize,
 		Root:        *root,
 		Json:        jsonOut,
 		Pattern:     pattern,
@@ -50,25 +57,28 @@ func main() {
 		fmt.Println("Error: Thread count must be greater than 0")
 		os.Exit(1)
 	}
-	if context < 0 {
+	if contextSize < 0 {
 		fmt.Println("Error: Context size must be greater than or equal to 0")
 		os.Exit(1)
 	}
 
-	cl, matchStyle, err := utils.LoadConfig()
+	cl, theme, err := utils.LoadConfig()
 	if err != nil {
 		fmt.Println("Error: While loading config: " + err.Error())
 		os.Exit(1)
 	}
 
-	matches, err := utils.SearchMatchLines(flags)
+	matches, err := utils.SearchMatchLines(ctx, flags)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			os.Exit(130) // interrupted
+		}
 		fmt.Println("Error: While searching for matches: " + err.Error())
 		os.Exit(1)
 	}
 
 	if jsonOut {
-		matchesArr := mappers.MapChanToJsonFile(matches)
+		matchesArr := mappers.MapChanToJsonFile(ctx, matches)
 		out, err := utils.BuildJson(matchesArr)
 		if err != nil {
 			fmt.Println(err)
@@ -78,7 +88,13 @@ func main() {
 		return
 	}
 
-	utils.PrintMatches(matches, cl, matchStyle, context)
+	utils.PrintMatches(ctx, matches, cl, theme, contextSize)
+
+	if ctx.Err() != nil {
+		// ensure styles are reset and we end on a fresh line
+		fmt.Fprint(os.Stdout, "\x1b[0m\x1b[K\n")
+		os.Exit(130)
+	}
 }
 
 func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool, error) {

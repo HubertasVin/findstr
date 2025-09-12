@@ -1,18 +1,29 @@
 package mappers
 
-import "github.com/HubertasVin/findstr/models"
+import (
+	"context"
 
-func MapChanToJsonFile(input <-chan models.FileMatch) []models.JsonFileMatch {
+	"github.com/HubertasVin/findstr/models"
+)
+
+func MapChanToJsonFile(ctx context.Context, input <-chan models.FileMatch) []models.JsonFileMatch {
 	var res []models.JsonFileMatch
-	for fm := range input {
-		lm := MapFileToLineContents(fm)
-		jfm := models.JsonFileMatch{
-			FileName:       fm.File,
-			MatchedContent: lm,
+	for {
+		select {
+		case <-ctx.Done():
+			return res
+		case fm, ok := <-input:
+			if !ok {
+				return res
+			}
+			lm := MapFileToLineContents(fm)
+			jfm := models.JsonFileMatch{
+				FileName:       fm.File,
+				MatchedContent: lm,
+			}
+			res = append(res, jfm)
 		}
-		res = append(res, jfm)
 	}
-	return res
 }
 
 func MapFileToLineContents(intput models.FileMatch) []models.LineContent {

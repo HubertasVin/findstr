@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,69 +21,88 @@ type fileVars struct {
 	clean    string
 }
 
-func PrintMatches(matches <-chan models.FileMatch, layout models.CompiledLayout, theme models.Theme, contextSize int) {
+func PrintMatches(
+	ctx context.Context,
+	matches <-chan models.FileMatch,
+	layout models.CompiledLayout,
+	theme models.Theme,
+	contextSize int,
+) {
 	w := bufio.NewWriterSize(os.Stdout, 1<<20)
 	defer w.Flush()
 
 	headerStyleFn := buildStyleFn(theme.Styles["header"])
 	matchStyleFn := buildStyleFn(theme.Styles["match"])
 	contextStyleFn := buildStyleFn(theme.Styles["context"])
-	const reset = "\x1b[0m"
+	const resetClear = "\x1b[0m\x1b[K"
 	const tabWidth = 4
 
 	first := true
-	for fm := range matches {
-		if !first {
-			fmt.Fprintln(w)
-		}
-		first = false
-
-		fv := fileVars{
-			filepath: fm.File,
-			dir:      filepath.Dir(fm.File),
-			base:     filepath.Base(fm.File),
-			clean:    filepath.Clean(fm.File),
-		}
-
-		leftWidth := 0
-		if layout.AutoWidth && len(fm.ContextLineNums) > 0 {
-			leftWidth = numDigits(fm.ContextLineNums[len(fm.ContextLineNums)-1] + 1)
-		}
-
-		if len(layout.Header) > 0 {
-			line := renderTokens(layout.Header, fv, 0, "", leftWidth, layout.AlignRight, tabWidth)
-			fmt.Fprintln(w, headerStyleFn("%s", line))
-		}
-
-		matchSet := make(map[int]struct{}, len(fm.MatchLineNums))
-		for _, ln := range fm.MatchLineNums {
-			matchSet[ln] = struct{}{}
-		}
-
-		prev := -1
-		for _, ln := range fm.ContextLineNums {
-			if prev != -1 && ln-prev >= contextSize {
-				fmt.Fprintln(w, headerStyleFn("%s", "..."))
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case fm, ok := <-matches:
+			if !ok {
+				return
 			}
 
-			text := fm.FileContent[ln]
-			var tokens []models.Token
-			if _, ok := matchSet[ln]; ok {
-				tokens = layout.Match
-			} else {
-				tokens = layout.Context
+			if !first {
+				fmt.Fprintln(w)
+			}
+			first = false
+
+			fv := fileVars{
+				filepath: fm.File,
+				dir:      filepath.Dir(fm.File),
+				base:     filepath.Base(fm.File),
+				clean:    filepath.Clean(fm.File),
 			}
 
-			line := renderTokens(tokens, fv, ln+1, text, leftWidth, layout.AlignRight, tabWidth)
-
-			if _, ok := matchSet[ln]; ok {
-				fmt.Fprint(w, matchStyleFn("%s", line))
-			} else {
-				fmt.Fprint(w, contextStyleFn("%s", line))
+			leftWidth := 0
+			if layout.AutoWidth && len(fm.ContextLineNums) > 0 {
+				leftWidth = numDigits(fm.ContextLineNums[len(fm.ContextLineNums)-1] + 1)
 			}
-            fmt.Fprint(w, reset)
-            fmt.Fprintln(w)
-			prev = ln
+
+			if len(layout.Header) > 0 {
+				line := renderTokens(layout.Header, fv, 0, "", leftWidth, layout.AlignRight, tabWidth)
+				fmt.Fprint(w, headerStyleFn("%s", line))
+				fmt.Fprint(w, resetClear)
+				fmt.Fprintln(w)
+			}
+
+			matchSet := make(map[int]struct{}, len(fm.MatchLineNums))
+			for _, ln := range fm.MatchLineNums {
+				matchSet[ln] = struct{}{}
+			}
+
+			prev := -1
+			for _, ln := range fm.ContextLineNums {
+				if prev != -1 && ln-prev >= contextSize {
+					fmt.Fprint(w, headerStyleFn("%s", "..."))
+					fmt.Fprint(w, resetClear)
+					fmt.Fprintln(w)
+				}
+
+				text := fm.FileContent[ln]
+				var tokens []models.Token
+				if _, ok := matchSet[ln]; ok {
+					tokens = layout.Match
+				} else {
+					tokens = layout.Context
+				}
+
+				line := renderTokens(tokens, fv, ln+1, text, leftWidth, layout.AlignRight, tabWidth)
+
+				if _, ok := matchSet[ln]; ok {
+					fmt.Fprint(w, matchStyleFn("%s", line))
+				} else {
+					fmt.Fprint(w, contextStyleFn("%s", line))
+				}
+				fmt.Fprint(w, resetClear)
+				fmt.Fprintln(w)
+				prev = ln
+			}
 		}
 	}
 }
@@ -131,7 +151,6 @@ func renderTokens(
 	return buf.String()
 }
 
-// expands \t into spaces using fixed-width tab stops, origin = startCol
 func expandTabs(s string, startCol, tabWidth int) string {
 	if tabWidth <= 0 {
 		return s
