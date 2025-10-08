@@ -101,6 +101,9 @@ func processFile(
 		return nil
 	}
 
+	if (IsCompatibleArchive(filepath.Base(full))) {
+		
+	}
 	lines, err := ReadFileLines(full)
 	if err != nil {
 		log.Println("Failed to read file:", relPath)
