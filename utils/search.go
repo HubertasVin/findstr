@@ -10,6 +10,7 @@ import (
 
 	"github.com/HubertasVin/chanseq"
 	"github.com/HubertasVin/findstr/models"
+	"github.com/HubertasVin/findstr/utils/archive"
 )
 
 func SearchMatchLines(ctx context.Context, flags models.ProgramFlags) (<-chan models.FileMatch, error) {
@@ -101,12 +102,15 @@ func processFile(
 		return nil
 	}
 
-	if (IsCompatibleArchive(filepath.Base(full))) {
-		
+	var lines []string
+	var err error
+	if (utils.IsPathInArchive(full)) {
+		lines, err = utils.ReadArchiveFileLines(full)
+	} else {
+		lines, err = ReadFileLines(full)
 	}
-	lines, err := ReadFileLines(full)
 	if err != nil {
-		log.Println("Failed to read file:", relPath)
+		log.Println("Error:", relPath)
 		return nil
 	}
 

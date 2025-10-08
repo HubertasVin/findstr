@@ -3,12 +3,13 @@ package utils
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/HubertasVin/findstr/utils/archive"
 )
 
 // GetMatchContextLines returns the numeric range around a match.
@@ -42,7 +43,7 @@ func FilePathWalkDir(
 	ctx context.Context,
 	root, excludeDir, excludeFile string,
 	threadCount int,
-	skipGit, searchArchives bool,
+	skipGit, searchArch bool,
 ) ([]string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -131,8 +132,16 @@ func FilePathWalkDir(
 			return nil
 		}
 		
-		if (!searchArchives && IsCompatibleArchive(rel)) {
-			return nil
+		if (utils.IsCompatibleArchive(rel)) {
+			if (!searchArch) {
+				return nil
+			} else {
+				archFiles, err := utils.GetArchiveFiles(rel, excludeDir, excludeFile, skipGit, searchArch)
+				if (err != nil) {
+					return err
+				}
+				files = append(files, archFiles...)
+			}
 		}
 
 		files = append(files, rel)
