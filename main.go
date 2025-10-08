@@ -111,7 +111,7 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 	context := pflag.IntP("context", "c", 2, "number of context lines to show around a matched line")
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
 	skipGit := pflag.BoolP("git", "g", false, "skip .git directory")
-	searchArch := pflag.BoolP("search-archives", "a", false, "search inside archives")
+	searchArch := pflag.BoolP("search-archives", "a", false, "search inside zip and tar archives")
 	jsonOut := pflag.Bool("json", false, "print result in json format")
 	createConfig := pflag.Bool("create-config", false, "create default config at $HOME/.config/findstr.toml and exit")
 
