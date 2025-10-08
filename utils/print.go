@@ -78,7 +78,7 @@ func PrintMatches(
 
 			prev := -1
 			for _, ln := range fm.ContextLineNums {
-				if prev != -1 && ln-prev >= contextSize {
+				if prev != -1 && ln-prev > contextSize {
 					fmt.Fprint(w, headerStyleFn("%s", "..."))
 					fmt.Fprint(w, resetClear)
 					fmt.Fprintln(w)
