@@ -7,6 +7,7 @@ type ProgramFlags struct {
 	ContextSize int
 	Root        string
 	SkipGit     bool
+	SearchArch  bool
     Json        bool
 	Pattern     string
 }

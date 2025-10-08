@@ -19,6 +19,7 @@ func SearchMatchLines(ctx context.Context, flags models.ProgramFlags) (<-chan mo
 		flags.ExcludeFile,
 		flags.ThreadCount,
 		flags.SkipGit,
+		flags.SearchArch,
 	)
 	if err != nil {
 		return nil, err

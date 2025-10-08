@@ -20,7 +20,7 @@ func main() {
 	defer stop()
 	signal.Ignore(syscall.SIGPIPE)
 
-	showVersion, exdir, exfile, threadc, contextSize, root, pattern, skipGit, jsonOut, createConfig, err := parseFlags()
+	showVersion, exdir, exfile, threadc, contextSize, root, pattern, skipGit, searchArch, jsonOut, createConfig, err := parseFlags()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr)
@@ -50,6 +50,7 @@ func main() {
 		ContextSize: contextSize,
 		Root:        *root,
 		SkipGit:     skipGit,
+		SearchArch:  searchArch,
 		Json:        jsonOut,
 		Pattern:     pattern,
 	}
@@ -97,7 +98,7 @@ func main() {
 	}
 }
 
-func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool, bool, error) {
+func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool, bool, bool, error) {
 	showVersion := pflag.BoolP("version", "v", false, "print version information")
 	exdir := pflag.StringP("exclude-dir", "e", "", "relative paths to ignore")
 	exfile := pflag.StringP(
@@ -110,6 +111,7 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 	context := pflag.IntP("context", "c", 2, "number of context lines to show around a matched line")
 	root := pflag.StringP("root", "r", "./", "root directory to walk")
 	skipGit := pflag.BoolP("git", "g", false, "skip .git directory")
+	searchArch := pflag.BoolP("search-archives", "a", false, "search inside archives")
 	jsonOut := pflag.Bool("json", false, "print result in json format")
 	createConfig := pflag.Bool("create-config", false, "create default config at $HOME/.config/findstr.toml and exit")
 
@@ -124,16 +126,16 @@ func parseFlags() (bool, *string, *string, int, int, *string, string, bool, bool
 
 	if args := pflag.Args(); len(args) == 0 {
 		if *showVersion {
-			return *showVersion, nil, nil, 0, 0, nil, "", false, false, false, nil
+			return *showVersion, nil, nil, 0, 0, nil, "", false, false, false, false, nil
 		}
 		if *createConfig {
-			return false, nil, nil, 0, 0, nil, "", false, false, *createConfig, nil
+			return false, nil, nil, 0, 0, nil, "", false, false, false, *createConfig, nil
 		}
-		return false, nil, nil, 0, -1, nil, "", false, false, false, errors.New(
+		return false, nil, nil, 0, -1, nil, "", false, false, false, false, errors.New(
 			"you must provide a <pattern> to search for",
 		)
 	} else {
-		return *showVersion, exdir, exfile, *threadc, *context, root, args[0], *skipGit, *jsonOut, *createConfig, nil
+		return *showVersion, exdir, exfile, *threadc, *context, root, args[0], *skipGit, *searchArch, *jsonOut, *createConfig, nil
 	}
 }
 

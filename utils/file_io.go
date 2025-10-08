@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -41,7 +42,7 @@ func FilePathWalkDir(
 	ctx context.Context,
 	root, excludeDir, excludeFile string,
 	threadCount int,
-	skipGit bool,
+	skipGit, searchArchives bool,
 ) ([]string, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -127,6 +128,10 @@ func FilePathWalkDir(
 		}
 
 		if fileExcludedByPattern(rel, excludeFiles) {
+			return nil
+		}
+		
+		if (!searchArchives && IsCompatibleArchive(rel)) {
 			return nil
 		}
 
